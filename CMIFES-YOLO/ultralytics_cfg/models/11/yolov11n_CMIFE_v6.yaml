@@ -1,0 +1,60 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# CMIFE-YOLO v6: 与官方YOLOv11n backbone完全一致 + CMIFE增强P3特征
+# 核心设计:
+#   1. Backbone完全复制官方YOLOv11n (P3=256ch, P4=512ch, P5=1024ch)
+#   2. Neck与官方YOLOv11n完全一致
+#   3. 仅在P3层添加双级联CMIFE进行特征精炼
+#   4. 预期参数量: ~3.2M (vs 基线2.59M, +24%)
+#   5. 预期GFLOPs: ~5.0G (vs 基线3.23G, +55%)
+
+# Parameters
+nc: 10  # VisDrone 10类
+scales:
+  n: [0.50, 0.25, 1024]  # depth=0.50, width=0.25, max_channels=1024
+
+# YOLO11n backbone (与官方yolo11.yaml完全一致)
+backbone:
+  - [-1, 1, Conv, [64, 3, 2]]        # 0: 3→64, P1/2
+  - [-1, 1, Conv, [128, 3, 2]]        # 1: 64→128, P2/4
+  - [-1, 2, C3k2, [256, False, 0.25]] # 2: 128→256, bottleneck=64
+  - [-1, 1, Conv, [256, 3, 2]]        # 3: 256→256, P3/8 (backbone P3)
+  - [-1, 2, C3k2, [512, False, 0.25]] # 4: 256→512, bottleneck=128
+  - [-1, 1, Conv, [512, 3, 2]]        # 5: 512→512, P4/16 (backbone P4)
+  - [-1, 2, C3k2, [512, True]]        # 6: 512→512, bottleneck=256
+  - [-1, 1, Conv, [512, 3, 2]]        # 7: 512→1024, P5/32 (backbone P5)
+  - [-1, 2, C3k2, [1024, True]]       # 8: 1024→1024, bottleneck=512
+  - [-1, 1, SPPF, [1024, 5]]          # 9: 1024→1024
+  - [-1, 2, C2PSA, [1024]]            # 10: 1024→1024 (输出1024ch)
+
+# CMIFE-YOLO v6 head
+head:
+  # === FPN自顶向下路径 (与官方YOLOv11n完全一致) ===
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]   # 11
+  - [[-1, 6], 1, Concat, [1]]                    # 12: 1024+512=1536
+  - [-1, 2, C3k2, [512, False]]                   # 13: 1536→512, neck P4
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]   # 14
+  - [[-1, 4], 1, Concat, [1]]                     # 15: 512+512=1024
+  - [-1, 2, C3k2, [256, False]]                   # 16: 1024→256, neck P3
+
+  # === CMIFE增强: P3层双级联精炼 ===
+  # CMIFE #1: 融合backbone_P3(256) + neck_P3(256) → 256ch
+  #   backbone L3输出P3=256ch, neck L16输出P3=256ch
+  #   CMIFE学习跨层特征融合 + 可变形空间注意力 + 局部-全局通道注意力
+  - [[3, 16], 1, CMIFE, [256]]   # 17
+
+  # CMIFE #2: 单输入精炼 256→256 (级联增强小目标特征)
+  #   第二次CMIFE进一步精炼P3特征，强化小目标检测能力
+  - [-1, 1, CMIFE, [256]]         # 18
+
+  # === PAN自底向上路径 (与官方YOLOv11n完全一致) ===
+  - [-1, 1, Conv, [256, 3, 2]]                   # 19: 256→128
+  - [[-1, 13], 1, Concat, [1]]                   # 20: 128+512=640
+  - [-1, 2, C3k2, [512, False]]                  # 21: 640→512, neck P4
+
+  - [-1, 1, Conv, [512, 3, 2]]                   # 22: 512→256
+  - [[-1, 10], 1, Concat, [1]]                   # 23: 256+1024=1280
+  - [-1, 2, C3k2, [1024, True]]                   # 24: 1280→1024, neck P5
+
+  # === 检测头 (P3增强 + P4 + P5) ===
+  - [[18, 21, 24], 1, Detect, [nc]]  # 25

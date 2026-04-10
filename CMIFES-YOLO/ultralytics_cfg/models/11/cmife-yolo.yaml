@@ -1,0 +1,118 @@
+# CMIFE-YOLO: Cross-scale Multi-level Information Fusion Enhancement for UAV Object Detection
+# Based on YOLOv11n architecture with CMIFE modules integrated at each detection scale
+#
+# Key Innovations:
+#   1. Dual CMIFE cascading at P3, P4, P5 detection levels
+#   2. Cross-scale global fusion mechanism (Layer 29)
+#   3. Scale-aware DeformableSpatialAttention (vs. fixed 7x7 Conv in CBAM)
+#   4. Local-Global dual-path channel attention with learnable fusion gate
+#   5. Cross-layer gating mechanism for multi-input fusion
+#
+# Architecture Overview:
+#   Backbone (0-10): Standard YOLO11n backbone -> outputs P3, P4, P5
+#   Neck Enhancement (11-28):
+#     - P3 path: backbone P3 + upsampled(P4) -> C3k2 -> Dual CMIFE -> P3_enh
+#     - P4 path: P3_downsample + backbone P4 -> C3k2 -> Dual CMIFE -> P4_enh
+#     - P5 path: P4_downsample + backbone P5 -> C3k2 -> Dual CMIFE -> P5_enh
+#   Cross-Scale Fusion (29): CMIFE([P3_enh, P4_enh, P5_enh]) -> fused
+#   Detection Head (30-31): 2-head design (P3_small + P4_medium), P5 removed
+
+# Parameters
+nc: 10  # number of classes (VisDrone: 10 categories)
+scales:
+  # [depth, width, max_channels]
+  # Using width=0.25 (same as YOLO11n), depth=0.50 (same as YOLO11n)
+  n: [0.50, 0.25, 1024]
+
+# ============================================================
+# BACKBONE (unchanged from YOLO11n)
+# ============================================================
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]          # 0-P1/2   640x640 -> 320x320
+  - [-1, 1, Conv, [128, 3, 2]]         # 1-P2/4   320x320 -> 160x160
+  - [-1, 2, C3k2, [256, False, 0.25]] # 2        160x160
+  - [-1, 1, Conv, [256, 3, 2]]        # 3-P3/8   160x160 -> 80x80   (P3 backbone output)
+  - [-1, 2, C3k2, [512, False, 0.25]]# 4        80x80
+  - [-1, 1, Conv, [512, 3, 2]]        # 5-P4/16  80x80 -> 40x40    (P4 backbone output)
+  - [-1, 2, C3k2, [512, True]]        # 6        40x40
+  - [-1, 1, Conv, [1024, 3, 2]]       # 7-P5/32  40x40 -> 20x20    (P5 backbone output)
+  - [-1, 2, C3k2, [1024, True]]       # 8        20x20
+  - [-1, 1, SPPF, [1024, 5]]          # 9        20x20
+  - [-1, 2, C2PSA, [1024]]            # 10       20x20
+
+# ============================================================
+# NECK: FPN + PAN with CMIFE Enhancement
+# The key insight: backbone features are processed through CMIFE
+# BEFORE being used in the neck's concatenation operations.
+# This creates "enhanced backbone features" that carry both
+# detailed (shallow) and semantic (deep) information.
+# ============================================================
+head:
+  # ---- P3 Detection Level (Small Objects, 80x80) ----
+  # Step 1: Upsample P5 to 40x40 (P5 backbone), concat with P4 backbone
+  # Then downsample to 80x80, concat with P3 backbone
+  # Result: [P3_backbone(256), P4_down(256)] = 512 channels
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]  # 11: 20x20 -> 40x40
+  - [[-1, 6], 1, Concat, [1]]                     # 12: concat [P4_backbone(512), up_P5(1024)] = 1536 -> C3k2
+  - [-1, 2, C3k2, [512, False]]                   # 13: 40x40, 512 channels
+
+  - [-1, 1, Conv, [256, 3, 2]]                    # 14: 40x40 -> 80x80
+  - [[-1, 13], 1, Concat, [1]]                    # 15: concat [P3_backbone(256), P4_C3k2(512)] = 768
+  - [-1, 2, C3k2, [512, False]]                   # 16: 80x80, 512 channels
+
+  # Step 2: Dual CMIFE at P3 level
+  # CMIFE-1: fuses [P3_backbone(256), neck_C3k2_P3(512)] -> 256 channels
+  - [[3, 16], 1, CMIFE, [256]]                    # 17: Dual CMIFE-1 for P3 (list input: backbone P3 + neck P3)
+  # CMIFE-2: refines CMIFE-1 output -> 256 channels
+  - [-1, 1, CMIFE, [256]]                         # 18: Dual CMIFE-2 for P3 (single input refinement)
+
+  # ---- P4 Detection Level (Medium Objects, 40x40) ----
+  # Downsample P3_enh to 40x40, concat with P4 backbone
+  - [-1, 1, Conv, [512, 3, 2]]                    # 19: 80x80 -> 40x40
+  - [[-1, 6], 1, Concat, [1]]                     # 20: concat [P4_backbone(512), down_P3_enh(256)] = 768
+  - [-1, 2, C3k2, [512, False]]                   # 21: 40x40, 512 channels
+
+  # Dual CMIFE at P4 level
+  - [[6, 21], 1, CMIFE, [512]]                    # 22: Dual CMIFE-1 for P4 (backbone P4 + neck P4)
+  - [-1, 1, CMIFE, [512]]                         # 23: Dual CMIFE-2 for P4
+
+  # ---- P5 Detection Level (Large Objects, 20x20) ----
+  # Note: P5 is kept for multi-scale diversity but NOT used for final detection
+  - [-1, 1, Conv, [1024, 3, 2]]                    # 24: 40x40 -> 20x20
+  - [[-1, 10], 1, Concat, [1]]                    # 25: concat [P5_backbone(1024), down_P4_enh(1024)] = 2048
+  - [-1, 2, C3k2, [1024, True]]                   # 26: 20x20, 1024 channels
+
+  # Dual CMIFE at P5 level
+  - [[10, 26], 1, CMIFE, [512]]                  # 27: Dual CMIFE-1 for P5 (backbone P5 + neck P5)
+  - [-1, 1, CMIFE, [512]]                         # 28: Dual CMIFE-2 for P5
+
+  # ---- Cross-Scale Global Fusion (Layer 29) ----
+  # Fuses enhanced features from all three scales at P3 resolution (80x80)
+  # P3_enh(256) + P4_enh_upsampled(512->256) + P5_enh_upsampled(512->256) = 768 -> CMIFE -> 256
+  - [[18, 23, 28], 1, CMIFE, [256]]              # 29: Cross-scale fusion CMIFE
+
+  # ---- Detection Head (2-head: P3 + P4, P5 removed) ----
+  # P3 head: detects small objects at 80x80
+  - [[29], 1, Detect, [nc]]                        # 30: P3 small object detection head
+
+# ============================================================
+# Architecture Statistics (estimated):
+#
+# YOLO11n Baseline:
+#   - Params: 2.6M | FLOPs: 6.5G | FPS: 135 (on RTX 4060)
+#
+# CMIFE-YOLO Expected (with dual CMIFE at 3 scales + cross-scale fusion):
+#   - Params: ~3.2-3.5M | FLOPs: ~8.5-9.5G | FPS: ~90-110
+#
+# Note: Adding CMIFE modules increases computation. The 4.9G FLOP claim
+# in the paper draft assumes P5 head removal alone, but dual CMIFE
+# modules add overhead. Recommend revising the target to:
+#   - mAP@0.5: 33-35% (conservative first-run target)
+#   - Params: 3.2M
+#   - FLOPs: 8.5G
+#   - FPS: ~100
+#
+# If 36.3% is achieved, it would represent a +7.8pp improvement which
+# is exceptional. Please run experiments to validate.
+# ============================================================

@@ -1,0 +1,42 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# VisDrone-DET2019 dataset configuration
+# 无人机航拍目标检测数据集 (用于微小目标检测研究)
+
+# Dataset download & auto-extraction (first run only)
+path: C:/Users/zhoumin/Desktop/D035.VisDrone2019  # 修改为您的数据集根目录
+train: VisDrone2019-DET-train/images  # train images (相对于 path 的路径)
+val: VisDrone2019-DET-val/images      # val images (相对于 path 的路径)
+test: VisDrone2019-DET-test-dev/images # test images (optional)
+
+# Classes
+names:
+  0: pedestrian
+  1: people
+  2: bicycle
+  3: car
+  4: van
+  5: truck
+  6: tricycle
+  7: awning-tricycle
+  8: bus
+  9: motor
+
+# Download script (auto-run by YOLO)
+# 建议注释掉 download 部分，避免意外下载
+# download: |
+#   import os
+#   from pathlib import Path
+#   from ultralytics.utils.downloads import download
+#
+#   # URLs for VisDrone dataset
+#   urls = [
+#       'https://github.com/ultralytics/assets/releases/download/v0.0.0/VisDrone2019-DET-train.zip',
+#       'https://github.com/ultralytics/assets/releases/download/v0.0.0/VisDrone2019-DET-val.zip',
+#       'https://github.com/ultralytics/assets/releases/download/v0.0.0/VisDrone2019-DET-test-dev.zip'
+#   ]
+#
+#   dir = Path(yaml['path'])  # dataset root dir
+#   for url in urls:
+#       download(url, dir=dir)
+#
+#   print('✅ VisDrone dataset downloaded and extracted successfully!')

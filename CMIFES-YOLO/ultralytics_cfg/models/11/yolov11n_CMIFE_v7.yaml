@@ -1,0 +1,64 @@
+# Ultralytics YOLO, AGPL-3.0 license
+# CMIFE-YOLO v7: 融合方案A(多尺度扩展) + 方案B(SE轻量化)
+# 核心改进:
+#   1. CMIFES模块: SE-ChannelAttention替代LocalGlobalChannelAttention
+#      (4K params vs 34K params at 256ch, reduction=16)
+#   2. SimpleSpatialAttention替代DeformableSpatialAttention
+#      (6K params vs 400K params)
+#   3. CMIFES扩展至P3/P4/P5三层多尺度融合
+#      (v6仅P3层2个模块, v7覆盖全部三个检测层共5个模块)
+# Backbone width=0.5 (vs v6 width=0.25): P3=128ch, P4/P5=256ch
+# 预估参数量: ~2.7M (vs v6的3.2M, 减少约15%, 覆盖更多尺度!)
+# 设计: P3用双级联精炼小目标, P4/P5各用单级强化中大目标
+
+# Parameters
+nc: 10  # VisDrone 10类
+scales:
+  n: [0.50, 0.50, 1024]  # depth=0.5, width=0.5, max_channels=1024
+
+# YOLOv11n backbone (width=0.5: P3=128ch, P4=256ch, P5=256ch)
+backbone:
+  - [-1, 1, Conv, [64, 3, 2]]           # 0: 3→64, P1/2
+  - [-1, 1, Conv, [128, 3, 2]]          # 1: 64→128, P2/4
+  - [-1, 2, C3k2, [256, False, 0.25]]   # 2: 128→256, bottleneck=64
+  - [-1, 1, Conv, [256, 3, 2]]          # 3: 256→256, P3/8, backbone P3=256ch
+  - [-1, 2, C3k2, [512, False, 0.25]]   # 4: 256→512, bottleneck=128
+  - [-1, 1, Conv, [512, 3, 2]]          # 5: 512→512, P4/16, backbone P4=512ch
+  - [-1, 2, C3k2, [512, True]]           # 6: 512→512, bottleneck=256
+  - [-1, 1, Conv, [512, 3, 2]]           # 7: 512→512, P5/32, backbone P5=512ch
+  - [-1, 2, C3k2, [512, True]]           # 8: 512→512, bottleneck=256
+  - [-1, 1, SPPF, [512, 5]]              # 9: 512→512
+  - [-1, 2, C2PSA, [512]]                # 10: 512→512
+
+# CMIFE-YOLO v7 neck
+head:
+  # === FPN自顶向下路径 ===
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]   # 11: 512→512 (upsample P5)
+  - [[-1, 6], 1, Concat, [1]]                    # 12: 512+512=1024
+  - [-1, 2, C3k2, [512, False]]                  # 13: 1024→512, neck P4
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]   # 14: 512→512 (upsample neck P4)
+  - [[-1, 4], 1, Concat, [1]]                    # 15: 512+512=1024
+  - [-1, 2, C3k2, [256, False]]                  # 16: 1024→256, neck P3
+
+  # === CMIFES多尺度增强 ===
+  # CMIFES_P3 #1: 融合backbone P3(256) + neck P3(256) → 256ch (同尺度拼接)
+  - [[3, 16], 1, CMIFES, [256]]                   # 17: P3_scale, concat 512→bottleneck 256→SE→spatial
+  # CMIFES_P3 #2: 单输入精炼 256→256 (级联增强小目标特征)
+  - [-1, 1, CMIFES, [256]]                        # 18: refine P3
+  # CMIFES_P4: 融合backbone P3_down2x(256,H/16) + neck P4(512,H/16) → 512ch (多尺度拼接)
+  - [[3, 13], 1, CMIFES, [512]]                   # 19: multi-scale concat 768→bottleneck 512→SE→spatial
+  # CMIFES_P5: 融合backbone P3_down4x(256,H/32) + backbone P5(512,H/32) → 512ch (多尺度拼接)
+  - [[3, 7], 1, CMIFES, [512]]                    # 20: multi-scale concat 768→bottleneck 512→SE→spatial
+
+  # === PAN自底向上路径 ===
+  - [-1, 1, Conv, [256, 3, 2]]                   # 21: 256→512
+  - [[-1, 13], 1, Concat, [1]]                   # 22: 512+512=1024
+  - [-1, 2, C3k2, [512, False]]                   # 23: 1024→512, PAN P4
+
+  - [-1, 1, Conv, [512, 3, 2]]                   # 24: 512→1024
+  - [[-1, 10], 1, Concat, [1]]                   # 25: 1024+512=1536
+  - [-1, 2, C3k2, [512, True]]                    # 26: 1536→512, PAN P5
+
+  # === 检测头 (使用CMIFES增强后的多尺度特征) ===
+  - [[18, 23, 26], 1, Detect, [nc]]   # 27: P3(256ch)+P4(512ch)+P5(512ch)

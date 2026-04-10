@@ -1,0 +1,65 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# YOLO11 object detection model with Enhanced Multi-Scale CMIFE
+
+# Parameters
+nc: 10  # VisDrone是10类，建议修改
+scales:
+  n: [0.50, 0.25, 1024]
+  s: [0.50, 0.50, 1024]
+  m: [0.50, 1.00, 512]
+  l: [1.00, 1.00, 512]
+  x: [1.00, 1.50, 512]
+
+# YOLO11n backbone
+backbone:
+  - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4
+  - [-1, 2, C3k2, [256, False, 0.25]]
+  - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
+  - [-1, 2, C3k2, [512, False, 0.25]]
+  - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
+  - [-1, 2, C3k2, [512, True]]
+  - [-1, 1, Conv, [1024, 3, 2]] # 7-P5/32
+  - [-1, 2, C3k2, [1024, True]]
+  - [-1, 1, SPPF, [1024, 5]] # 9
+  - [-1, 2, C2PSA, [1024]] # 10
+
+# YOLO11n head with Enhanced CMIFE
+head:
+  # P4上采样路径
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 6], 1, Concat, [1]]
+  - [-1, 2, C3k2, [512, False]] # 13
+
+  # P3上采样路径
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 4], 1, Concat, [1]]
+  - [-1, 2, C3k2, [256, False]] # 16 (P3/8-small)
+
+  # 🔥 改进1: P3层双CMIFE增强小目标
+  - [[3, 16], 1, CMIFE, [256]]  # 第一次融合
+  - [-1, 1, CMIFE, [256]]        # 第二次增强（串联）
+
+  # 下采样到P4
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 13], 1, Concat, [1]]
+  - [-1, 2, C3k2, [512, False]] # 21 (P4/16-medium)
+
+  # 🔥 改进2: P4层双CMIFE
+  - [[6, 21], 1, CMIFE, [512]]   # 融合backbone和head
+  - [-1, 1, CMIFE, [512]]        # 第二次增强
+
+  # 下采样到P5
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 10], 1, Concat, [1]]
+  - [-1, 2, C3k2, [1024, True]] # 26 (P5/32-large)
+
+  # 🔥 改进3: P5层双CMIFE
+  - [[10, 26], 1, CMIFE, [1024]] # 融合backbone和head
+  - [-1, 1, CMIFE, [1024]]       # 第二次增强
+
+  # 🔥 改进4: 跨尺度特征融合
+  - [[18, 23, 28], 1, CMIFE, [512]] # 29 - 融合P3、P4、P5的CMIFE输出
+
+  # Detection head
+  - [[18, 23, 29], 1, Detect, [nc]] # 使用增强后的特征
