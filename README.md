@@ -1,127 +1,217 @@
 # CMIFES-YOLO
-CMIFES-YOLO: A lightweight YOLO-based object detection model optimized for UAV small target detection on VisDrone dataset, with improved feature fusion and attention mechanisms for industrial inspection and aerial monitoring scenarios.
 
+Reproducible research code for CMIFES-YOLO, a YOLO11-style detector with
+Cross-scale Multi-level Information Fusion Enhancement modules for small-object
+detection experiments.
 
-Cross-Modality Integration Feature Enhancement Strategy for YOLO-based Object Detection.
+This repository is organized for paper review and follow-up reproduction:
+clone the repository, create the environment, install the Ultralytics patch,
+prepare the dataset, train, evaluate, and record each experiment from a fixed
+commit.
 
-This repository contains the implementation of CMIFES-YOLO, an enhanced YOLO detector designed for improved small-object detection in drone imagery, built upon the Ultralytics YOLO framework.
+> Status: source release scaffold. Datasets, trained weights, and full paper
+> result tables are intentionally not committed. Add weights through GitHub
+> Releases, Hugging Face, or another artifact host.
 
-## Project Structure
+## Repository Layout
 
-```
-CMIFES-YOLO/
-├── ultralytics_src/              # Modified Ultralytics source code
-│   ├── __init__.py
-│   ├── models/                   # Model definitions
-│   │   ├── __init__.py
-│   │   ├── model.py
-│   │   └── yolo/                 # YOLO task models
-│   │       ├── __init__.py
-│   │       ├── detect/
-│   │       ├── classify/
-│   │       ├── segment/
-│   │       ├── pose/
-│   │       ├── obb/
-│   │       ├── world/
-│   │       └── yoloe/
-│   └── nn/
-│       ├── __init__.py
-│       ├── tasks.py
-│       └── modules/              # Custom modules (CMIFE, CMIFES)
-│           ├── __init__.py
-│           ├── CMIFE.py          # Cross-Modality Integration Feature Enhancement
-│           ├── CMIFES.py         # Extended variant with enhanced skip connections
-│           ├── conv.py
-│           ├── block.py
-│           ├── head.py
-│           ├── activation.py
-│           ├── transformer.py
-│           └── utils.py
-├── ultralytics_cfg/             # Model and dataset configurations
-│   ├── models/11/
-│   │   ├── cmife-yolo.yaml       # Main CMIFE-YOLO model config
-│   │   ├── yolo11.yaml           # Baseline YOLO11 config
-│   │   └── cmife-abl-*.yaml      # Ablation study configs (a–f)
-│   └── datasets/
-│       └── VisDrone.yaml         # VisDrone dataset configuration
-├── scripts/                      # Training and evaluation scripts
-│   ├── train-yolo11-CMIFE*.py    # Training scripts (multiple versions)
-│   ├── train_cmife_v*.py         # Additional training variants
-│   ├── batch_train.py            # Batch training utility
-│   ├── convert_visdrone_to_yolo.py  # Dataset conversion tool
-│   ├── eval_analysis.py          # Evaluation and analysis
-│   ├── grad_cam_vis.py           # Grad-CAM visualization
-│   ├── run_ablation.py           # Ablation study runner
-│   ├── run_comparison.py         # Comparison with baselines
-│   └── relitu.py                 # Relative illumination utility
-├── visualization/                # Network architecture visualization
-│   ├── 1_visualize_full_model.py
-│   └── 2_visualize_cmifes_module.py
-├── figures/                      # Figure generation scripts
-│   ├── draw_cmifes.py
-│   ├── draw_cmifes_yolo.py
-│   └── make_fig_training_curves.py
-├── configs/                      # Additional configuration files
-├── LICENSE
-└── README.md
-```
-
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/CMIFES-YOLO.git
-cd CMIFES-YOLO
-
-# Install dependencies
-pip install ultralytics
-# or install from pyproject.toml
-pip install -e .
+```text
+.
+|-- configs/                         # Additional baseline/attention configs
+|-- docs/                            # Dataset, experiment, and reproducibility notes
+|-- figures/                         # Figure generation scripts
+|-- scripts/
+|   |-- install_ultralytics_patch.py  # Copies CMIFE/CMIFES patch files into installed Ultralytics
+|   |-- train.py                     # Main reproducible training entry point
+|   |-- evaluate.py                  # Main reproducible evaluation entry point
+|   |-- run_ablation.py              # Batch ablation runner
+|   |-- convert_visdrone_to_yolo.py  # VisDrone annotation conversion utility
+|   `-- smoke_test.py                # Optional local model construction check
+|-- ultralytics_cfg/
+|   |-- datasets/                    # Dataset YAML files
+|   `-- models/11/                   # CMIFES-YOLO and ablation model YAML files
+|-- ultralytics_src/                 # Patch source for the installed Ultralytics package
+|-- visualization/                   # Architecture visualization scripts
+|-- environment.yml                  # Conda environment for CUDA 12.4 workflows
+|-- requirements.txt                 # Pip dependency set
+|-- pyproject.toml                   # Minimal project metadata and dependency install
+|-- CITATION.cff
+`-- LICENSE
 ```
 
 ## Quick Start
 
-### Training
+### 1. Clone
 
 ```bash
-# Train CMIFE-YOLO on VisDrone dataset
-python scripts/train-yolo11-CMIFE.py --data ultralytics_cfg/datasets/VisDrone.yaml --cfg ultralytics_cfg/models/11/cmife-yolo.yaml --epochs 300 --imgsz 640
+git clone https://github.com/dle868158-debug/CMIFES-YOLO.git
+cd CMIFES-YOLO
 ```
 
-### Evaluation
+### 2. Create the Environment
+
+For the Windows RTX 4060 Laptop GPU workflow, use the conda file:
 
 ```bash
-# Run evaluation
-python scripts/eval_analysis.py --weights runs/train/exp/weights/best.pt --data ultralytics_cfg/datasets/VisDrone.yaml
+conda env create -f environment.yml
+conda activate cmifes-yolo
 ```
 
-### Ablation Study
+For a pip-only environment:
 
 ```bash
-# Run ablation experiments
-python scripts/run_ablation.py
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -e .
 ```
 
-### Comparison with Baselines
+### 3. Install the CMIFE/CMIFES Ultralytics Patch
+
+The repository stores only the modified Ultralytics files under
+`ultralytics_src/`. Install Ultralytics first, then copy the patch files into
+the installed package:
 
 ```bash
-# Compare with baseline YOLO models
-python scripts/run_comparison.py
+python scripts/install_ultralytics_patch.py
 ```
 
-## Dataset
+Optional dry run:
 
-The model is evaluated on the [VisDrone](https://github.com/VisDrone/VisDrone2018-DET-toolkit) dataset. Configure your dataset path in `ultralytics_cfg/datasets/VisDrone.yaml`.
+```bash
+python scripts/install_ultralytics_patch.py --dry-run
+```
 
-## Key Modules
+### 4. Prepare VisDrone in YOLO Format
 
-- **CMIFE.py**: Cross-Modality Integration Feature Enhancement module that enhances feature representation through multi-scale feature fusion.
-- **CMIFES.py**: Extended CMIFE variant with enhanced skip connections for improved gradient flow and feature propagation.
+Expected default dataset layout:
+
+```text
+datasets/VisDrone-YOLO/
+|-- images/
+|   |-- train/
+|   |-- val/
+|   `-- test/
+`-- labels/
+    |-- train/
+    |-- val/
+    `-- test/
+```
+
+If you start from the official VisDrone folders, convert them:
+
+```bash
+python scripts/convert_visdrone_to_yolo.py ^
+  --input datasets/VisDrone2019 ^
+  --output datasets/VisDrone-YOLO
+```
+
+Then confirm `ultralytics_cfg/datasets/VisDrone.yaml` points to that output
+directory. For a custom dataset, copy the YAML and change `path`, `train`,
+`val`, `test`, and `names`.
+
+### 5. Smoke Test
+
+This checks that the patched Ultralytics package can parse the CMIFES-YOLO YAML:
+
+```bash
+python scripts/smoke_test.py --model ultralytics_cfg/models/11/cmife-yolo.yaml
+```
+
+### 6. Train
+
+```bash
+python scripts/train.py ^
+  --model ultralytics_cfg/models/11/cmife-yolo.yaml ^
+  --data ultralytics_cfg/datasets/VisDrone.yaml ^
+  --epochs 300 ^
+  --imgsz 640 ^
+  --batch 8 ^
+  --device 0 ^
+  --workers 0 ^
+  --seed 42 ^
+  --name cmifes_yolo
+```
+
+Outputs are written to `runs/train/cmifes_yolo/` by default.
+
+### 7. Evaluate
+
+```bash
+python scripts/evaluate.py ^
+  --weights runs/train/cmifes_yolo/weights/best.pt ^
+  --data ultralytics_cfg/datasets/VisDrone.yaml ^
+  --imgsz 640 ^
+  --device 0 ^
+  --output runs/eval/cmifes_yolo.json
+```
+
+### 8. Run Ablations
+
+Run every predefined ablation:
+
+```bash
+python scripts/run_ablation.py ^
+  --experiments all ^
+  --data ultralytics_cfg/datasets/VisDrone.yaml ^
+  --epochs 300 ^
+  --batch 8 ^
+  --device 0 ^
+  --workers 0
+```
+
+Run selected experiments:
+
+```bash
+python scripts/run_ablation.py --experiments baseline,p3_dual,full
+```
+
+## Main Model and Ablation Configs
+
+```text
+ultralytics_cfg/models/11/cmife-yolo.yaml
+ultralytics_cfg/models/11/cmife-abl-a_baseline.yaml
+ultralytics_cfg/models/11/cmife-abl-b_p3_single.yaml
+ultralytics_cfg/models/11/cmife-abl-c_p3_dual.yaml
+ultralytics_cfg/models/11/cmife-abl-d_p3_p4_dual.yaml
+ultralytics_cfg/models/11/cmife-abl-e_p3_p4_p5_dual.yaml
+ultralytics_cfg/models/11/cmife-abl-f_full.yaml
+```
+
+See [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) for the intended experiment
+matrix.
+
+## Reproducibility Checklist
+
+For every table row in the paper, record:
+
+- repository commit SHA
+- model YAML
+- dataset YAML and dataset version
+- train/val split
+- random seed
+- image size, batch size, epochs, optimizer, learning rate schedule
+- GPU model and CUDA/PyTorch versions
+- checkpoint path or artifact URL
+- raw metrics JSON path
+
+See [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) for a complete template.
+
+## Large Files
+
+Do not commit datasets, `runs/`, or `*.pt` weights. Use:
+
+- GitHub Releases for small public checkpoints
+- Hugging Face Hub for model weights and reproducibility artifacts
+- an institutional data repository for paper supplementary materials
 
 ## Citation
 
-If you use this code in your research, please cite our paper.
+If this code is useful for your research, cite the repository with
+[CITATION.cff](CITATION.cff). Replace the placeholder paper metadata after the
+manuscript is accepted or posted as a preprint.
 
 ## License
 
-This project is based on the [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) framework and inherits the AGPL-3.0 license.
+This project builds on Ultralytics YOLO and keeps the AGPL-3.0 license. See
+[LICENSE](LICENSE).

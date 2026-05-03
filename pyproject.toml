@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=70.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cmifes-yolo"
+version = "0.1.0"
+description = "Reproducible CMIFES-YOLO research code and Ultralytics patch files."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "AGPL-3.0" }
+authors = [
+    { name = "Xiang Yu Cheng" },
+]
+keywords = [
+    "object-detection",
+    "small-object-detection",
+    "yolo",
+    "ultralytics",
+    "industrial-inspection",
+]
+dependencies = [
+    "ultralytics>=8.3.0,<9.0.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy>=1.23.0",
+    "opencv-python>=4.6.0",
+    "pillow>=9.0.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.7.0",
+    "pandas>=2.0.0",
+    "scipy>=1.10.0",
+    "tqdm>=4.66.0",
+    "ultralytics-thop>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.6.0",
+]
+viz = [
+    "torchview>=0.2.6",
+    "graphviz>=0.20.0",
+]
+
+[project.urls]
+Repository = "https://github.com/dle868158-debug/CMIFES-YOLO"
+
+[tool.setuptools]
+py-modules = []
+
+[tool.ruff]
+line-length = 120

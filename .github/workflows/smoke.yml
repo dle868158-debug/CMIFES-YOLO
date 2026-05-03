@@ -1,0 +1,23 @@
+name: repository-smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  static-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Compile reproducibility entry points
+        run: |
+          python -m py_compile \
+            scripts/install_ultralytics_patch.py \
+            scripts/train.py \
+            scripts/evaluate.py \
+            scripts/run_ablation.py \
+            scripts/smoke_test.py \
+            scripts/convert_visdrone_to_yolo.py

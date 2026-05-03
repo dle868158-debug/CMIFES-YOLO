@@ -9,7 +9,6 @@
   4. 检测结果可视化对比
   5. PR曲线绘制
 """
-import os
 import json
 import time
 import argparse
@@ -23,8 +22,8 @@ from ultralytics import YOLO
 matplotlib.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 matplotlib.rcParams['axes.unicode_minus'] = False
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_YAML = os.path.join(CURRENT_DIR, 'VisDrone.yaml')
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_YAML = str(PROJECT_ROOT / 'ultralytics_cfg' / 'datasets' / 'VisDrone.yaml')
 
 CLASS_NAMES = [
     'pedestrian', 'people', 'bicycle', 'car', 'van',

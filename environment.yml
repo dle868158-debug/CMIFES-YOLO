@@ -1,0 +1,13 @@
+name: cmifes-yolo
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pytorch=2.6.*
+  - torchvision
+  - pytorch-cuda=12.4
+  - pip:
+      - -e .

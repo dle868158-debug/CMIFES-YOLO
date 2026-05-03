@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
+from pathlib import Path
 
 FW, FH = 26.0, 15.0
 fig, ax = plt.subplots(figsize=(FW, FH))
@@ -283,9 +284,9 @@ ax.text(FW/2,FH-.62,
         'Dashed red arrows indicate cross-layer fusion with CrossLayerGating (CLG).',
         ha='center',va='top',fontsize=8.5,color='#444444',style='italic')
 
-OUT=(r'C:/Users/Administrator/Desktop/drone_paper/paper_v7/figures0331/'
-     'fig_cmifes_yolo_v5.png')
+OUT = Path(__file__).resolve().parent / "output" / "fig_cmifes_yolo_v5.png"
+OUT.parent.mkdir(parents=True, exist_ok=True)
 plt.tight_layout(pad=0.2)
 plt.savefig(OUT,dpi=200,bbox_inches='tight',facecolor='white',edgecolor='none')
 plt.close()
-print(f'Saved → {OUT}')
+print(f'Saved {OUT}')

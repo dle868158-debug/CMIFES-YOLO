@@ -24,7 +24,7 @@ from datetime import datetime
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
-DATASET_PATH = r'C:\Users\Administrator\Desktop\D035.VisDrone2019_YOLO'
+DATASET_PATH = os.environ.get("CMIFES_DATASET", str(PROJECT_ROOT / "datasets" / "VisDrone-YOLO"))
 MODEL_DIR = PROJECT_ROOT / 'ultralytics_cfg' / 'models' / '11'
 OUTPUT_DIR = PROJECT_ROOT / 'runs' / 'cmife_exp'
 
