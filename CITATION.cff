@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it using the metadata below."
+title: "CMIFES-YOLO: Reproducible Research Code for Small-Object Detection"
+authors:
+  - family-names: "Cheng"
+    given-names: "Xiang Yu"
+repository-code: "https://github.com/dle868158-debug/CMIFES-YOLO"
+license: "AGPL-3.0"
+version: "0.1.0"
+date-released: "2026-05-03"

@@ -16,13 +16,13 @@ import sys
 
 # ── 路径设置 ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, r"..\2-ultralytics-main - MDFA"))
+PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 OUTPUT_DIR  = os.path.join(SCRIPT_DIR, "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# 添加 Graphviz 到 PATH (winget 默认安装位置)
-graphviz_bin = r"C:\Program Files\Graphviz\bin"
-if os.path.isdir(graphviz_bin) and graphviz_bin not in os.environ["PATH"]:
+# Optional Graphviz path, for example set GRAPHVIZ_BIN to your local Graphviz bin directory.
+graphviz_bin = os.environ.get("GRAPHVIZ_BIN")
+if graphviz_bin and os.path.isdir(graphviz_bin) and graphviz_bin not in os.environ["PATH"]:
     os.environ["PATH"] += os.pathsep + graphviz_bin
 
 sys.path.insert(0, PROJECT_DIR)

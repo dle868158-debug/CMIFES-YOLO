@@ -10,10 +10,12 @@ YOLO format:
     class_id x_center y_center width height (all normalized to 0-1)
 """
 
-import os
 import shutil
 from pathlib import Path
 from tqdm import tqdm
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def convert_visdrone_to_yolo(visdrone_dir, output_dir):
@@ -164,10 +166,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Convert VisDrone to YOLO format')
     parser.add_argument('--input', '-i', type=str,
-                        default=r'C:\Users\Administrator\Desktop\D035.VisDrone2019',
+                        default=str(PROJECT_ROOT / 'datasets' / 'VisDrone2019'),
                         help='VisDrone dataset root directory')
     parser.add_argument('--output', '-o', type=str,
-                        default=r'C:\Users\Administrator\Desktop\D035.VisDrone2019_YOLO',
+                        default=str(PROJECT_ROOT / 'datasets' / 'VisDrone-YOLO'),
                         help='Output directory for YOLO format dataset')
 
     args = parser.parse_args()

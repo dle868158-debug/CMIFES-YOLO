@@ -7,6 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 import matplotlib.patheffects as pe
+from pathlib import Path
 
 FW, FH = 20, 26
 fig, ax = plt.subplots(figsize=(FW, FH))
@@ -427,8 +428,9 @@ for i, (lbl, fc, ec, ls) in enumerate(items):
             fontsize=6.5, color=FC['txt'], zorder=4)
 
 # Save
-OUT = r'C:/Users/Administrator/Desktop/drone_paper/paper_v7/figures0331/fig_cmifes_module.png'
+OUT = Path(__file__).resolve().parent / "output" / "fig_cmifes_module.png"
+OUT.parent.mkdir(parents=True, exist_ok=True)
 plt.tight_layout(pad=0.3)
 plt.savefig(OUT, dpi=180, bbox_inches='tight', facecolor='white')
 plt.close()
-print(f'Saved → {OUT}')
+print(f'Saved {OUT}')
